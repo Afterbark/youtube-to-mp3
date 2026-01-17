@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Work Downloader</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; }
+        .container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        input[type="text"] { width: 300px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; background-color: #ff0000; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px; }
+        button:hover { background-color: #cc0000; }
+        .note { margin-top: 20px; font-size: 0.8rem; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>YouTube to MP3</h2>
+        <form action="/download" method="POST">
+            <input type="text" name="url" placeholder="Paste YouTube Link here..." required>
+            <button type="submit">Download MP3</button>
+        </form>
+        <p class="note">Processing may take a few seconds.</p>
+    </div>
+</body>
+</html>
