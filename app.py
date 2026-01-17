@@ -31,7 +31,7 @@ def download_thread(youtube_url, task_id):
     output_template = f'{DOWNLOAD_FOLDER}/{task_id}.%(ext)s'
 
     ydl_opts = {
-        # Format: Try audio, then video+audio, then whatever is left
+        # Format Selector: robust fallback
         'format': 'bestaudio/bestvideo+bestaudio/best',
         
         'outtmpl': output_template,
@@ -43,8 +43,13 @@ def download_thread(youtube_url, task_id):
         'quiet': True,
         'noplaylist': True,
         
-        # AUTHENTICATION ONLY (Removed Android Disguise)
+        # 1. AUTHENTICATION (Cookies)
         'cookiefile': 'cookies.txt',
+
+        # 2. MATCHING IDENTITY (User Agent) [NEW FIX]
+        # This makes the script claim it is a standard Windows PC using Chrome.
+        # This matches the "identity" inside your cookies.txt file.
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
 
         'progress_hooks': [lambda d: progress_hook(d, task_id)],
     }
