@@ -91,29 +91,33 @@ def get_status(task_id):
     return jsonify(task)
 
 @app.route('/get_file/<task_id>', methods=['GET'])
-# REPLACE THE OLD get_file FUNCTION WITH THIS DEBUG VERSION
-@app.route('/get_file/<task_id>', methods=['GET'])
 def get_file(task_id):
-    # 1. Check if the task exists in memory
+    # 1. Get task details
     task = download_tasks.get(task_id)
     if not task:
-        return f"Error: Task {task_id} not found. Did the server restart?", 404
+        return "Error: Task not found.", 404
     
-    # 2. Verify the file actually exists on the disk
+    # 2. Check if file exists on server
     file_path = task['filename']
     if not os.path.exists(file_path):
-        # DEBUGGING: If file is missing, list ALL files in the folder so we can see what happened
-        try:
-            files_in_folder = os.listdir(DOWNLOAD_FOLDER)
-        except:
-            files_in_folder = "Could not list folder"
-            
-        return (
-            f"ERROR: File not found!\n"
-            f"Looking for: {file_path}\n"
-            f"Files actually in 'downloads' folder: {files_in_folder}\n"
-            f"Task details: {task}"
-        ), 404
+        return "Error: File missing from server.", 404
+
+    # 3. Prepare the user-friendly filename
+    # We take the original title, but replace slashes to avoid filesystem errors
+    original_title = task.get('title', 'audio_download')
+    safe_user_filename = original_title.replace('/', '_').replace('\\', '_') + ".mp3"
+
+    try:
+        # 4. Send the file!
+        # 'file_path' is the ugly server name (uuid.mp3)
+        # 'download_name' is the pretty name the user sees
+        return send_file(
+            file_path, 
+            as_attachment=True, 
+            download_name=safe_user_filename
+        )
+    except Exception as e:
+        return f"Error sending file: {str(e)}", 500
 
     # 3. Try to send the file with a SAFE name (ASCII only) to prevent header errors
     try:
