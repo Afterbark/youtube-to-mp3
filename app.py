@@ -31,9 +31,7 @@ def download_thread(youtube_url, task_id):
     output_template = f'{DOWNLOAD_FOLDER}/{task_id}.%(ext)s'
 
     ydl_opts = {
-        # CRITICAL FIX 1: The "Grab Anything" Selector
-        # If 'bestaudio' (pure audio) fails, it will download the VIDEO ('best')
-        # and then FFmpeg will strip the audio out. This prevents the "Format not available" error.
+        # 1. Format Selector: Grab whatever is available (video or audio)
         'format': 'bestaudio/bestvideo+bestaudio/best',
         
         'outtmpl': output_template,
@@ -45,14 +43,17 @@ def download_thread(youtube_url, task_id):
         'quiet': True,
         'noplaylist': True,
         
-        # CRITICAL FIX 2: Android Disguise WITHOUT Cookies
-        # We removed 'cookiefile' because it conflicts with the Android client.
-        # The Android client usually bypasses the "Sign in" check for music videos.
+        # 2. CRITICAL CHANGE: The iOS Disguise
+        # We replace 'android' with 'ios'.
+        # We REMOVE 'web' from the list so it doesn't fall back to the blocked web version.
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'web']
+                'player_client': ['ios']
             }
         },
+        
+        # 3. ENSURE COOKIES ARE OFF
+        # (Make sure you do NOT have a line saying 'cookiefile': 'cookies.txt' here)
 
         'progress_hooks': [lambda d: progress_hook(d, task_id)],
     }
