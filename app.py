@@ -91,19 +91,41 @@ def get_status(task_id):
     return jsonify(task)
 
 @app.route('/get_file/<task_id>', methods=['GET'])
+# REPLACE THE OLD get_file FUNCTION WITH THIS DEBUG VERSION
+@app.route('/get_file/<task_id>', methods=['GET'])
 def get_file(task_id):
+    # 1. Check if the task exists in memory
     task = download_tasks.get(task_id)
-    if not task or task['status'] != 'done':
-        return "File not ready", 400
+    if not task:
+        return f"Error: Task {task_id} not found. Did the server restart?", 404
     
-    # FIX: Send the file named "uuid.mp3" but tell the browser to call it "Rick Astley.mp3"
-    safe_download_name = f"{task['title']}.mp3"
-    
-    return send_file(
-        task['filename'], 
-        as_attachment=True, 
-        download_name=safe_download_name
-    )
+    # 2. Verify the file actually exists on the disk
+    file_path = task['filename']
+    if not os.path.exists(file_path):
+        # DEBUGGING: If file is missing, list ALL files in the folder so we can see what happened
+        try:
+            files_in_folder = os.listdir(DOWNLOAD_FOLDER)
+        except:
+            files_in_folder = "Could not list folder"
+            
+        return (
+            f"ERROR: File not found!\n"
+            f"Looking for: {file_path}\n"
+            f"Files actually in 'downloads' folder: {files_in_folder}\n"
+            f"Task details: {task}"
+        ), 404
+
+    # 3. Try to send the file with a SAFE name (ASCII only) to prevent header errors
+    try:
+        # We temporarily force a simple name to rule out the "Arabic characters" crash
+        safe_name = "downloaded_audio.mp3" 
+        return send_file(
+            file_path, 
+            as_attachment=True, 
+            download_name=safe_name 
+        )
+    except Exception as e:
+        return f"CRITICAL SEND ERROR: {str(e)}", 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
