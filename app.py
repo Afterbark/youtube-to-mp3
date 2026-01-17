@@ -40,12 +40,11 @@ def download_thread(youtube_url, task_id):
     # Use the task_id as the filename on the server (Safe & Simple)
     output_template = f'{DOWNLOAD_FOLDER}/{task_id}.%(ext)s'
 
-ydl_opts = {
+    ydl_opts = {
         # FIX: The Format Selector
         # 1. 'bestaudio' = Try to get pure audio first (fastest).
         # 2. 'bestvideo+bestaudio' = If no pure audio, get the best video.
         # 3. 'best' = If all else fails, get whatever is available.
-        # Since we have FFmpeg, downloading a video is fine; we will strip the audio anyway.
         'format': 'bestaudio/bestvideo+bestaudio/best',
         
         'outtmpl': output_template,
@@ -56,12 +55,18 @@ ydl_opts = {
         }],
         'quiet': True,
         'noplaylist': True,
+        
+        # 1. AUTHENTICATION: Use the cookies file you uploaded
         'cookiefile': 'cookies.txt',
+
+        # 2. DISGUISE: Tell YouTube we are an Android phone to prevent throttling/empty files
         'extractor_args': {
             'youtube': {
                 'player_client': ['android']
             }
         },
+
+        # 3. PROGRESS: Attach the hook to update progress
         'progress_hooks': [lambda d: progress_hook(d, task_id)],
     }
 
@@ -134,8 +139,6 @@ def get_file(task_id):
 
     try:
         # 4. Send the file!
-        # 'file_path' is the ugly server name (uuid.mp3)
-        # 'download_name' is the pretty name the user sees
         return send_file(
             file_path, 
             as_attachment=True, 
