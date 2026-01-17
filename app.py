@@ -31,7 +31,9 @@ def download_thread(youtube_url, task_id):
     output_template = f'{DOWNLOAD_FOLDER}/{task_id}.%(ext)s'
 
     ydl_opts = {
-        # Format Selector: robust fallback
+        # CRITICAL FIX 1: The "Grab Anything" Selector
+        # If 'bestaudio' (pure audio) fails, it will download the VIDEO ('best')
+        # and then FFmpeg will strip the audio out. This prevents the "Format not available" error.
         'format': 'bestaudio/bestvideo+bestaudio/best',
         
         'outtmpl': output_template,
@@ -43,13 +45,14 @@ def download_thread(youtube_url, task_id):
         'quiet': True,
         'noplaylist': True,
         
-        # 1. AUTHENTICATION (Cookies)
-        'cookiefile': 'cookies.txt',
-
-        # 2. MATCHING IDENTITY (User Agent) [NEW FIX]
-        # This makes the script claim it is a standard Windows PC using Chrome.
-        # This matches the "identity" inside your cookies.txt file.
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        # CRITICAL FIX 2: Android Disguise WITHOUT Cookies
+        # We removed 'cookiefile' because it conflicts with the Android client.
+        # The Android client usually bypasses the "Sign in" check for music videos.
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web']
+            }
+        },
 
         'progress_hooks': [lambda d: progress_hook(d, task_id)],
     }
@@ -107,6 +110,7 @@ def get_file(task_id):
         return "Error: File missing from server.", 404
 
     original_title = task.get('title', 'audio_download')
+    # Remove dangerous characters
     safe_user_filename = original_title.replace('/', '_').replace('\\', '_') + ".mp3"
 
     try:
