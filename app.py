@@ -42,6 +42,7 @@ def download_thread(youtube_url, task_id):
         }],
         'quiet': True,
         'noplaylist': True,
+        'cookiefile': 'cookies.txt',
         'progress_hooks': [lambda d: progress_hook(d, task_id)],
     }
 
