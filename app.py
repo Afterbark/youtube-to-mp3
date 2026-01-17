@@ -13,10 +13,16 @@ if not os.path.exists(DOWNLOAD_FOLDER):
     os.makedirs(DOWNLOAD_FOLDER)
 
 # GLOBAL DICTIONARY TO STORE PROGRESS
+# Format: {'task_id': {'status': 'processing', 'progress': 0, 'filename': None, 'title': None}}
 download_tasks = {}
 
 def progress_hook(d, task_id):
+    """
+    Callback function that yt-dlp calls while downloading.
+    We update the global dictionary with the current percentage.
+    """
     if d['status'] == 'downloading':
+        # specific string manipulation to extract '15.4%' -> 15.4
         p = d.get('_percent_str', '0%').replace('%', '')
         try:
             download_tasks[task_id]['progress'] = float(p)
@@ -28,8 +34,10 @@ def progress_hook(d, task_id):
         download_tasks[task_id]['status'] = 'converting'
 
 def download_thread(youtube_url, task_id):
-    # FIX: Use the task_id as the filename on the server (Safe & Simple)
-    # This avoids errors with spaces, emojis, or special characters in titles
+    """
+    Runs in the background. Downloads and converts the file.
+    """
+    # Use the task_id as the filename on the server (Safe & Simple)
     output_template = f'{DOWNLOAD_FOLDER}/{task_id}.%(ext)s'
 
     ydl_opts = {
@@ -42,23 +50,34 @@ def download_thread(youtube_url, task_id):
         }],
         'quiet': True,
         'noplaylist': True,
+        
+        # 1. AUTHENTICATION: Use the cookies file you uploaded
         'cookiefile': 'cookies.txt',
+
+        # 2. DISGUISE: Tell YouTube we are an Android phone to prevent throttling/empty files
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android']
+            }
+        },
+
+        # 3. PROGRESS: Attach the hook to update progress
         'progress_hooks': [lambda d: progress_hook(d, task_id)],
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # 1. Extract info to get the Real Title
+            # Extract info to get the Real Title
             info = ydl.extract_info(youtube_url, download=True)
-            video_title = info.get('title', 'audio')
+            video_title = info.get('title', 'audio_download')
 
-            # 2. The file is guaranteed to be named task_id.mp3
+            # The file is guaranteed to be named task_id.mp3
             final_filename = f"{DOWNLOAD_FOLDER}/{task_id}.mp3"
             
-            # 3. Save info so we can use it later
+            # Update task with the final filename and title so the user can grab it
             download_tasks[task_id]['status'] = 'done'
             download_tasks[task_id]['filename'] = final_filename
-            download_tasks[task_id]['title'] = video_title # Save title for the user
+            download_tasks[task_id]['title'] = video_title
             download_tasks[task_id]['progress'] = 100
             
     except Exception as e:
@@ -71,21 +90,26 @@ def home():
 
 @app.route('/start_download', methods=['POST'])
 def start_download():
+    # 1. Get URL
     data = request.json
     youtube_url = data.get('url')
     if not youtube_url:
         return jsonify({'error': 'No URL provided'}), 400
 
+    # 2. Create a Task ID
     task_id = str(uuid.uuid4())
     download_tasks[task_id] = {'status': 'queued', 'progress': 0}
 
+    # 3. Start Download in Background Thread
     thread = threading.Thread(target=download_thread, args=(youtube_url, task_id))
     thread.start()
 
+    # 4. Return the Task ID to the browser
     return jsonify({'task_id': task_id})
 
 @app.route('/status/<task_id>', methods=['GET'])
 def get_status(task_id):
+    # Browser asks: "How is task X doing?"
     task = download_tasks.get(task_id)
     if not task:
         return jsonify({'error': 'Task not found'}), 404
@@ -119,18 +143,6 @@ def get_file(task_id):
         )
     except Exception as e:
         return f"Error sending file: {str(e)}", 500
-
-    # 3. Try to send the file with a SAFE name (ASCII only) to prevent header errors
-    try:
-        # We temporarily force a simple name to rule out the "Arabic characters" crash
-        safe_name = "downloaded_audio.mp3" 
-        return send_file(
-            file_path, 
-            as_attachment=True, 
-            download_name=safe_name 
-        )
-    except Exception as e:
-        return f"CRITICAL SEND ERROR: {str(e)}", 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
