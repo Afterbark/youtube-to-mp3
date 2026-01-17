@@ -3,24 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Work Downloader</title>
+    <title>Work Downloader</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; }
-        .container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
-        input[type="text"] { width: 300px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        button { padding: 10px 20px; background-color: #ff0000; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px; }
-        button:hover { background-color: #cc0000; }
-        .note { margin-top: 20px; font-size: 0.8rem; color: #666; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+        .container { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 400px; }
+        h2 { margin-bottom: 20px; color: #333; }
+        input[type="text"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; margin-bottom: 15px; }
+        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; transition: background 0.2s; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
+        
+        /* Progress Bar Styles */
+        .progress-wrapper { margin-top: 20px; display: none; }
+        .progress-bg { background-color: #e9ecef; border-radius: 5px; height: 20px; width: 100%; overflow: hidden; }
+        .progress-fill { background-color: #28a745; height: 100%; width: 0%; transition: width 0.4s ease; }
+        .status-text { margin-top: 10px; font-size: 0.9rem; color: #666; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>YouTube to MP3</h2>
-        <form action="/download" method="POST">
-            <input type="text" name="url" placeholder="Paste YouTube Link here..." required>
-            <button type="submit">Download MP3</button>
-        </form>
-        <p class="note">Processing may take a few seconds.</p>
+
+<div class="container">
+    <h2>YouTube to MP3</h2>
+    <input type="text" id="urlInput" placeholder="Paste YouTube Link here...">
+    <button id="downloadBtn" onclick="startDownload()">Download MP3</button>
+
+    <div class="progress-wrapper" id="progressWrapper">
+        <div class="progress-bg">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+        <p class="status-text" id="statusText">Starting...</p>
     </div>
+</div>
+
+<script>
+    async function startDownload() {
+        const url = document.getElementById('urlInput').value;
+        const btn = document.getElementById('downloadBtn');
+        const wrapper = document.getElementById('progressWrapper');
+        const statusText = document.getElementById('statusText');
+        
+        if(!url) return alert("Please enter a URL");
+
+        // UI Reset
+        btn.disabled = true;
+        wrapper.style.display = 'block';
+        statusText.innerText = "Initializing...";
+        document.getElementById('progressBar').style.width = '0%';
+
+        // 1. Tell Server to Start
+        const response = await fetch('/start_download', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: url})
+        });
+        
+        const data = await response.json();
+        const taskId = data.task_id;
+
+        // 2. Poll for Progress every 1 second
+        const interval = setInterval(async () => {
+            const res = await fetch(`/status/${taskId}`);
+            const status = await res.json();
+
+            // Update Bar
+            document.getElementById('progressBar').style.width = status.progress + '%';
+            
+            if (status.status === 'downloading') {
+                statusText.innerText = `Downloading... ${status.progress}%`;
+            } else if (status.status === 'converting') {
+                statusText.innerText = "Converting to MP3 (This takes a moment)...";
+            } else if (status.status === 'done') {
+                clearInterval(interval);
+                statusText.innerText = "Done! Downloading file...";
+                btn.disabled = false;
+                // Trigger file download
+                window.location.href = `/get_file/${taskId}`;
+            } else if (status.status === 'error') {
+                clearInterval(interval);
+                statusText.innerText = "Error: " + status.error;
+                btn.disabled = false;
+            }
+        }, 1000);
+    }
+</script>
+
 </body>
 </html>
